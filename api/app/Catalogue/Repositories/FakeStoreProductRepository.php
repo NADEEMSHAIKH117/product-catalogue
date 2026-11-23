@@ -55,9 +55,16 @@ class FakeStoreProductRepository extends InMemoryProductRepository
         }
 
         // Drop records we can't identify rather than failing the whole catalogue.
-        return array_values(array_filter(
+        $products = array_values(array_filter(
             $payload,
             fn ($item) => is_array($item) && isset($item['id'], $item['title']),
         ));
+
+        // An empty catalogue is an upstream fault; throwing keeps it out of the cache.
+        if ($products === []) {
+            throw new ProductSourceUnavailable('Fake Store returned no usable products.');
+        }
+
+        return $products;
     }
 }

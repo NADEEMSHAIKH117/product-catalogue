@@ -39,7 +39,7 @@ interface ProductRepository
     public function inCategory(string $slug): array;
 
     /**
-     * Products whose title, description or category contain every word of the term (case-insensitive).
+     * Products whose title, description or category contain a word starting with each word of the term (case-insensitive).
      *
      * @return list<Product>
      *

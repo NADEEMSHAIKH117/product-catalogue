@@ -30,7 +30,9 @@ class StoreEnquiryRequest extends FormRequest
                 }
             }],
             'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:254'],
+            // rfc,strict matches what the mailer accepts; plain 'email' lets through addresses
+            // like jane(c)@example.com that then fail when building the message.
+            'email' => ['required', 'string', 'email:rfc,strict', 'max:254'],
             'phone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+()\-\s]+$/'],
             'message' => ['nullable', 'string', 'max:2000'],
         ];

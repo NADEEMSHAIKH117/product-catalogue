@@ -50,4 +50,17 @@ return [
 
     'sales_inbox' => env('SALES_INBOX_ADDRESS', 'sales@example.com'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Trusted proxies
+    |--------------------------------------------------------------------------
+    |
+    | Proxies allowed to set X-Forwarded-For (the Vite dev proxy locally, the
+    | load balancer in production), so rate limits see the real client IP.
+    | Never use '*': any client could then spoof its IP and dodge the limits.
+    |
+    */
+
+    'trusted_proxies' => array_values(array_filter(explode(',', (string) env('TRUSTED_PROXIES', '')))),
+
 ];

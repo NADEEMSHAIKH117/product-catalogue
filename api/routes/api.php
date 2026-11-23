@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:api')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/featured', [ProductController::class, 'featured']);
-    Route::get('/products/{id}', [ProductController::class, 'show'])->whereNumber('id');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->where('id', '[0-9]{1,9}');
 
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{slug}/products', [CategoryController::class, 'products'])

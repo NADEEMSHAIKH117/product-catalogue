@@ -6,6 +6,7 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app            # live code reload
+      - /app/vendor           # use the image's vendor/ (installed at build), not the host's
     environment:
       PHP_CLI_SERVER_WORKERS: 4
     depends_on:
@@ -15,6 +16,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 120s      # first run may still be installing dependencies
 
   web:
     build: ./web

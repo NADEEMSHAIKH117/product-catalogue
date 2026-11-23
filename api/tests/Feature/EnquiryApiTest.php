@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\ProductEnquiryMail;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 class EnquiryApiTest extends TestCase
@@ -12,8 +12,14 @@ class EnquiryApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Each test gets a fresh array cache, so rate limit counters start at zero.
         $this->fakeStoreReturnsProducts();
-        RateLimiter::clear('enquiries');
+    }
+
+    protected function tearDown(): void
+    {
+        TrustProxies::flushState();
+        parent::tearDown();
     }
 
     private function validPayload(array $overrides = []): array
@@ -83,6 +89,18 @@ class EnquiryApiTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_email_must_be_one_the_mailer_can_actually_send_to(): void
+    {
+        Mail::fake();
+
+        // Passes RFC validation but Symfony Mime rejects it when building the message.
+        $this->postJson('/api/v1/enquiries', $this->validPayload(['email' => 'jane(c)@example.com']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        Mail::assertNothingSent();
+    }
+
     public function test_enquiry_for_unknown_product_is_rejected(): void
     {
         Mail::fake();
@@ -104,6 +122,39 @@ class EnquiryApiTest extends TestCase
 
         $this->postJson('/api/v1/enquiries', $this->validPayload())->assertStatus(429);
         Mail::assertSentCount(5);
+    }
+
+    public function test_rate_limit_uses_the_real_client_ip_behind_a_trusted_proxy(): void
+    {
+        Mail::fake();
+        TrustProxies::at(['172.16.0.0/12']);
+        $viaProxy = fn (string $clientIp) => $this->withServerVariables([
+            'REMOTE_ADDR' => '172.18.0.5',
+            'HTTP_X_FORWARDED_FOR' => $clientIp,
+        ]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $viaProxy('203.0.113.1')->postJson('/api/v1/enquiries', $this->validPayload())->assertStatus(202);
+        }
+        $viaProxy('203.0.113.1')->postJson('/api/v1/enquiries', $this->validPayload())->assertStatus(429);
+
+        // A different customer behind the same proxy is not blocked.
+        $viaProxy('203.0.113.2')->postJson('/api/v1/enquiries', $this->validPayload())->assertStatus(202);
+    }
+
+    public function test_untrusted_clients_cannot_dodge_the_rate_limit_by_spoofing_forwarded_for(): void
+    {
+        Mail::fake();
+        TrustProxies::at(['172.16.0.0/12']);
+
+        for ($i = 0; $i < 6; $i++) {
+            $response = $this->withServerVariables([
+                'REMOTE_ADDR' => '198.51.100.9',
+                'HTTP_X_FORWARDED_FOR' => "203.0.113.{$i}",
+            ])->postJson('/api/v1/enquiries', $this->validPayload());
+        }
+
+        $response->assertStatus(429);
     }
 
     public function test_mail_server_failure_tells_the_customer_to_retry(): void
@@ -134,6 +185,20 @@ class EnquiryApiTest extends TestCase
 
             return str_contains($html, 'Jane &lt;script&gt;')
                 && ! str_contains($html, '<script>');
+        });
+    }
+
+    public function test_plain_text_email_is_not_html_escaped(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/v1/enquiries', $this->validPayload(['name' => "Pat O'Brien"]))->assertStatus(202);
+
+        Mail::assertSent(ProductEnquiryMail::class, function (ProductEnquiryMail $mail) {
+            $mail->assertSeeInText("Name: Pat O'Brien");
+            $mail->assertSeeInText("Category: men's clothing");
+
+            return true;
         });
     }
 }

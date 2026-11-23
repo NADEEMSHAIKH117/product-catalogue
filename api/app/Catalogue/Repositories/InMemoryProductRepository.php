@@ -57,7 +57,8 @@ abstract class InMemoryProductRepository implements ProductRepository
             $haystack = Str::lower("{$product->title} {$product->description} {$product->category->name}");
 
             foreach ($words as $word) {
-                if (! str_contains($haystack, $word)) {
+                // Match at the start of a word: "men" must not match "women", "jack" matches "jacket".
+                if (! preg_match('/\b'.preg_quote($word, '/').'/u', $haystack)) {
                     return false;
                 }
             }

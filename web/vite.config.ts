@@ -10,7 +10,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': { target: apiTarget, changeOrigin: true },
+      // xfwd adds X-Forwarded-For so Laravel rate-limits by the real client IP.
+      '/api': { target: apiTarget, changeOrigin: true, xfwd: true },
     },
   },
   test: {

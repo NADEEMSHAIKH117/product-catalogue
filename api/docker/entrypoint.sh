@@ -2,7 +2,8 @@
 # First-run setup so `docker compose up` is the only command a reviewer needs.
 set -e
 
-# The source is bind-mounted in development, so vendor/ may be missing or stale on the host.
+# vendor/ comes from the image; this is a fast no-op unless composer.lock changed
+# since the image was built.
 composer install --no-interaction --prefer-dist --no-progress --quiet
 
 if [ ! -f .env ]; then

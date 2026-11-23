@@ -83,6 +83,19 @@ class ProductApiTest extends TestCase
             ->assertJsonPath('data.*.id', [3]);
     }
 
+    public function test_search_matches_from_the_start_of_words_only(): void
+    {
+        $this->fakeStoreReturnsProducts();
+
+        // "men" must not match "women's clothing"...
+        $ids = array_column($this->getJson('/api/v1/products?search=men')->assertOk()->json('data'), 'id');
+        $this->assertNotEmpty($ids);
+        $this->assertEmpty(array_intersect($ids, [15, 16, 17, 18, 19, 20]), 'women\'s clothing matched "men"');
+
+        // ...but a prefix still matches: "jack" finds jackets.
+        $this->getJson('/api/v1/products?search=jack')->assertOk()->assertJsonPath('data.0.id', 3);
+    }
+
     public function test_search_with_no_matches_returns_an_empty_list(): void
     {
         $this->fakeStoreReturnsProducts();
@@ -97,6 +110,12 @@ class ProductApiTest extends TestCase
         $this->getJson('/api/v1/products?search='.str_repeat('a', 101))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('search');
+    }
+
+    public function test_out_of_range_product_id_is_a_404_not_a_server_error(): void
+    {
+        $this->getJson('/api/v1/products/99999999999999999999')->assertNotFound();
+        $this->getJson('/api/v1/products/abc')->assertNotFound();
     }
 
     public function test_product_list_without_search_returns_everything(): void
@@ -149,5 +168,24 @@ class ProductApiTest extends TestCase
         $this->getJson('/api/v1/products')
             ->assertOk()
             ->assertJsonPath('data.*.id', [1]);
+    }
+
+    public function test_an_empty_upstream_catalogue_is_an_outage_and_is_not_cached(): void
+    {
+        Sleep::fake();
+        Http::fake(['fakestore.test/products' => Http::response([['title' => 'No id']])]);
+
+        $this->getJson('/api/v1/products/featured')->assertStatus(503);
+        $this->assertFalse(cache()->has('catalogue.fakestore.products'));
+    }
+
+    public function test_api_does_not_grant_cross_origin_access_by_default(): void
+    {
+        $this->fakeStoreReturnsProducts();
+
+        $this->withHeaders(['Origin' => 'https://evil.example'])
+            ->getJson('/api/v1/products/featured')
+            ->assertOk()
+            ->assertHeaderMissing('Access-Control-Allow-Origin');
     }
 }
