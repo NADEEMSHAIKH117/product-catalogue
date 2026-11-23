@@ -1,0 +1,36 @@
+# Local development stack: `docker compose up`, then open http://localhost:5173
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app            # live code reload
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    depends_on:
+      - mailpit
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/up"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: ./web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app
+      - /app/node_modules     # keep the container's Linux node_modules, not the host's
+    environment:
+      API_PROXY_TARGET: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "8025:8025"           # web UI: the "sales inbox"
+      - "1025:1025"           # SMTP
