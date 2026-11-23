@@ -56,9 +56,12 @@ describe('Enquiry', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send enquiry' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('valid email address')
-    // The field-level message renders inside the Email label, next to the input.
-    expect(screen.getByText('Email').closest('label')).toHaveTextContent('The email field must be a valid email address.')
-    expect(screen.getByLabelText(/Email/)).toHaveValue('jane@example.com')
+    const email = screen.getByLabelText(/Email/)
+    expect(email).toHaveValue('jane@example.com')
+    // The field error is announced with the input, and focus moves to it.
+    expect(email).toHaveAttribute('aria-invalid', 'true')
+    expect(email).toHaveAccessibleDescription('The email field must be a valid email address.')
+    expect(email).toHaveFocus()
     expect(screen.queryByText('Thank you!')).not.toBeInTheDocument()
   })
 

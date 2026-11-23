@@ -53,6 +53,25 @@ describe('Category page', () => {
   })
 })
 
+describe('Category navigation', () => {
+  it('replaces the products when moving from one category to another', async () => {
+    const section = (category: (typeof categories)[number], title: string, id: number) => ({
+      body: { data: { category, top_rated: [makeProduct(id, title, category)], others: [] } },
+    })
+    fakeApi({
+      'GET /api/v1/categories/electronics/products': () => section(categories[0], 'Fast SSD', 11),
+      'GET /api/v1/categories/jewelery/products': () => section(categories[1], 'Gold Ring', 5),
+    })
+    renderAt('/category/electronics')
+    expect(await screen.findByText('Fast SSD')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('link', { name: 'jewelery' }))
+
+    expect(await screen.findByText('Gold Ring')).toBeInTheDocument()
+    expect(screen.queryByText('Fast SSD')).not.toBeInTheDocument()
+  })
+})
+
 describe('Search', () => {
   it('only shows products the API returns for the entered term', async () => {
     const fetchMock = fakeApi({
@@ -83,6 +102,22 @@ describe('Search', () => {
     expect(await screen.findByText('No products match “unicorn”.')).toBeInTheDocument()
   })
 
+  // The box is keyed by the URL term, so back/forward or leaving search resets it.
+  it('keeps the search box in step with the URL when the term changes', async () => {
+    fakeApi({ 'GET /api/v1/products': () => ({ body: { data: [] } }) })
+    renderAt('/search?q=first')
+    const box = screen.getByRole('searchbox')
+
+    await userEvent.clear(box)
+    await userEvent.type(box, 'second')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('No products match “second”.')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Product Catalogue' }))
+
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+  })
+
   it('does not search for a blank term', async () => {
     const fetchMock = fakeApi({ 'GET /api/v1/products/featured': () => ({ body: { data: featured } }) })
     renderAt('/')
@@ -96,6 +131,15 @@ describe('Search', () => {
 })
 
 describe('Product page', () => {
+  it('shows not found for an invalid product id without calling the API', async () => {
+    const fetchMock = fakeApi({})
+
+    renderAt('/products/abc')
+
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/products/'), expect.anything())
+  })
+
   it('opens the product details when a product tile is clicked', async () => {
     fakeApi({
       'GET /api/v1/products/featured': () => ({ body: { data: featured } }),

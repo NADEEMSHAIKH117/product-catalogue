@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import type { FieldErrors } from '../api/types'
 import { AsyncContent } from '../components/AsyncContent'
 import { useAsync } from '../hooks/useAsync'
+import { parseProductId } from '../lib/params'
+import { NotFoundPage } from './NotFoundPage'
 
 type SubmitState =
   | { status: 'idle' }
@@ -12,7 +14,14 @@ type SubmitState =
   | { status: 'sent'; message: string }
 
 export function EnquiryPage() {
-  const id = Number(useParams().id)
+  const id = parseProductId(useParams().id)
+
+  if (id === null) return <NotFoundPage />
+
+  return <ProductLoader id={id} />
+}
+
+function ProductLoader({ id }: { id: number }) {
   const product = useAsync(() => api.product(id), [id])
 
   return (
@@ -24,6 +33,14 @@ export function EnquiryPage() {
 
 function EnquiryForm({ productId, productTitle }: { productId: number; productTitle: string }) {
   const [submit, setSubmit] = useState<SubmitState>({ status: 'idle' })
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // After a validation failure, move focus to the first invalid field.
+  useEffect(() => {
+    if (submit.status === 'error') {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+    }
+  }, [submit])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -60,9 +77,13 @@ function EnquiryForm({ productId, productTitle }: { productId: number; productTi
   }
 
   const fieldErrors = submit.status === 'error' ? submit.fieldErrors : {}
+  const errorFor = (field: keyof FieldErrors) => fieldErrors[field]?.[0]
+  // Links an input to its error message for screen readers.
+  const errorProps = (field: keyof FieldErrors) =>
+    errorFor(field) ? { 'aria-invalid': true, 'aria-describedby': `${field}-error` } : {}
   const fieldError = (field: keyof FieldErrors) =>
-    fieldErrors[field]?.[0] && (
-      <span className="field-error">{fieldErrors[field]?.[0]}</span>
+    errorFor(field) && (
+      <span className="field-error" id={`${field}-error`}>{errorFor(field)}</span>
     )
 
   return (
@@ -74,25 +95,25 @@ function EnquiryForm({ productId, productTitle }: { productId: number; productTi
         <p className="status status--error" role="alert">{submit.message}</p>
       )}
 
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form" onSubmit={handleSubmit} ref={formRef}>
         <label>
           Name
-          <input name="name" required maxLength={100} autoComplete="name" />
+          <input name="name" required maxLength={100} autoComplete="name" {...errorProps('name')} />
           {fieldError('name')}
         </label>
         <label>
           Email
-          <input name="email" type="email" required maxLength={254} autoComplete="email" />
+          <input name="email" type="email" required maxLength={254} autoComplete="email" {...errorProps('email')} />
           {fieldError('email')}
         </label>
         <label>
           Phone <span className="optional">(optional)</span>
-          <input name="phone" type="tel" maxLength={30} autoComplete="tel" />
+          <input name="phone" type="tel" maxLength={30} autoComplete="tel" {...errorProps('phone')} />
           {fieldError('phone')}
         </label>
         <label>
           Message <span className="optional">(optional)</span>
-          <textarea name="message" rows={5} maxLength={2000} />
+          <textarea name="message" rows={5} maxLength={2000} {...errorProps('message')} />
           {fieldError('message')}
         </label>
         <button type="submit" disabled={submit.status === 'submitting'}>

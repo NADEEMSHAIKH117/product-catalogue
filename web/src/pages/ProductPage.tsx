@@ -2,10 +2,19 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { AsyncContent } from '../components/AsyncContent'
 import { useAsync } from '../hooks/useAsync'
+import { parseProductId } from '../lib/params'
+import { NotFoundPage } from './NotFoundPage'
 import { formatPrice } from '../lib/format'
 
 export function ProductPage() {
-  const id = Number(useParams().id)
+  const id = parseProductId(useParams().id)
+
+  if (id === null) return <NotFoundPage />
+
+  return <ProductLoader id={id} />
+}
+
+function ProductLoader({ id }: { id: number }) {
   const state = useAsync(() => api.product(id), [id])
 
   return (
