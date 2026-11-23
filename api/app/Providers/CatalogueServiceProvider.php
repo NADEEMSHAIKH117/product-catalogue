@@ -7,6 +7,7 @@ use App\Catalogue\Repositories\FakeStoreProductRepository;
 use App\Catalogue\Repositories\FixtureProductRepository;
 use App\Catalogue\TopRatedSelector;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 
@@ -23,7 +24,7 @@ class CatalogueServiceProvider extends ServiceProvider
 
             return match ($config['source']) {
                 'fakestore' => new FakeStoreProductRepository(
-                    http: $app->make(\Illuminate\Http\Client\Factory::class),
+                    http: $app->make(Factory::class),
                     cache: $app->make('cache.store'),
                     baseUrl: $config['fakestore']['base_url'],
                     timeoutSeconds: $config['fakestore']['timeout'],
