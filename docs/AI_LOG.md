@@ -93,6 +93,12 @@ README troubleshooting.
 | 12 | Wrote a "back navigation" test containing a `window.history.back()` call that did nothing (with a comment admitting it). | Re-read the test before committing. | Renamed to what it actually tests; removed dead line; mutation-checked it fails without the fix. |
 | 13 | **Restored a mutated file with `git checkout --`, which also wiped the uncommitted fix in that file.** | My own post-check (`git diff` guard) printed a warning. | Re-applied the change, re-ran all checks. Lesson: back up to a temp file for mutation checks (as I did earlier), never restore from git with uncommitted work. |
 
+### Found by the fresh-clone check
+
+| # | Mistake | How it was caught | Fix |
+|---|---|---|---|
+| 14 | Deleted Laravel's example unit test, leaving `tests/Unit/` empty. Git doesn't track empty folders, so **on any clean checkout (and in CI) PHPUnit refused to run at all** ("Test directory not found"). Every local run passed because my working copy still had the empty folder. | Before pushing: fresh `git clone` → `docker compose build --no-cache` → `up` (71 s to healthy) → all five criteria via curl → both test suites. | Removed the empty Unit suite from `phpunit.xml`; re-verified on another fresh clone. |
+
 Environment issue (not an AI mistake, but worth noting): Composer's parallel
 downloads inside `php:8.4-cli-alpine` failed with TLS "bad record mac" errors on
 my network. Reproduced in isolation with and without

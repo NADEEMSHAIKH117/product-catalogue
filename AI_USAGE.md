@@ -70,13 +70,15 @@ The most instructive ones (all 13 + 12 reviewer findings are in the log):
 | Test dependencies were "installed" with `--silent` and never actually installed. | `vitest: not found` | Reinstall with output visible |
 | Trusted-proxy config read `env()` in `bootstrap/app.php`; it would silently stop working under `config:cache` in production. | Self-review right after writing | Moved to config + service provider |
 | While mutation-testing a fix, restored the file with `git checkout --`, which **also wiped the uncommitted fix**. | A guard check in the same command printed a warning | Re-applied, re-ran everything |
+| Left an empty `tests/Unit/` folder; git doesn't track it, so **PHPUnit failed on every clean checkout and in CI** while passing locally. | Fresh-clone, no-cache run of the reviewer's exact steps before pushing | Removed the empty suite; re-verified on a new clone |
 
 What I take from this: the AI was fast and mostly right, but its errors were
 the subtle kind that pass a quick look. That includes code that looks correct
 but is wrong in deployment (proxies, `config:cache`), and tests that pass
 without testing what their name says. What caught them was a layered review:
 running the real stack, mutation checks, an independent reviewer with a
-different context, and re-reading tests against their names.
+different context, re-reading tests against their names, and finally doing
+exactly what a reviewer would do on a clean clone.
 
 ## Time spent
 
